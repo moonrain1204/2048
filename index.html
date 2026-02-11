@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>2K48 Mobile v0.2</title>
+    <title>2K48 Mobile v0.3</title>
     <style>
         :root {
             --bg-color: #bbada0;
@@ -83,25 +83,28 @@
             align-items: center;
             justify-content: center;
             font-weight: 800;
-            /* 關鍵：只針對 transform 做動畫，其餘屬性瞬間切換避免閃爍 */
-            transition: transform 100ms ease-in-out;
+            /* 關鍵：使用 transform 並開啟硬體加速 */
+            transition: transform 110ms ease-out, background-color 100ms ease;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
             will-change: transform;
+            z-index: 10;
         }
 
-        /* 數字字體大小 */
+        /* 加粗加大字體 */
         .tile-2, .tile-4, .tile-8 { font-size: 34px; }
         .tile-16, .tile-32, .tile-64 { font-size: 30px; }
         .tile-128, .tile-256, .tile-512 { font-size: 24px; }
         .tile-1024, .tile-2048 { font-size: 20px; }
 
-        .tile-new { animation: appear 150ms ease-out; }
+        .tile-new { animation: appear 150ms ease-out forwards; }
 
         @keyframes appear { 
-            0% { opacity: 0; transform: scale(0); } 
-            100% { opacity: 1; transform: scale(1); } 
+            0% { opacity: 0; transform: var(--target-pos) scale(0); } 
+            100% { opacity: 1; transform: var(--target-pos) scale(1); } 
         }
 
-        /* 顏色配置 */
+        /* 顏色定義 */
         .tile-2 { background: #eee4da; color: var(--text-dark); }
         .tile-4 { background: #ede0c8; color: var(--text-dark); }
         .tile-8 { background: #f2b179; color: white; }
@@ -113,14 +116,13 @@
         .tile-512 { background: #edc850; color: white; }
         .tile-1024 { background: #edc53f; color: white; }
         .tile-2048 { background: #edc22e; color: white; }
-        .tile-super { background: #3c3a32; color: white; }
     </style>
 </head>
 <body>
 
     <div class="header">
         <div>
-            <span class="version-tag">VERSION 0.2 (Stable)</span>
+            <span class="version-tag">VERSION 0.3 (Zero-Flicker)</span>
             <h1 style="color: var(--text-dark); margin: 0; line-height: 1;">2K48</h1>
         </div>
         <div class="score-container">
@@ -138,7 +140,7 @@
         const GRID_SIZE = 5;
         let grid = [];
         let score = 0;
-        let nextId = 0; // 為每個方塊分配唯一 ID
+        let nextId = 0;
         const container = document.getElementById('tile-container');
         const scoreDisplay = document.getElementById('score');
 
@@ -147,6 +149,10 @@
             document.getElementById('grid-bg').innerHTML = '<div class="grid-cell"></div>'.repeat(25);
             addTile(); addTile();
             render();
+        }
+
+        function getPos(r, c) {
+            return `translate(calc(${c} * 100% + ${c * 8}px), calc(${r} * 100% + ${r * 8}px))`;
         }
 
         function addTile() {
@@ -162,38 +168,35 @@
 
         function render() {
             const activeIds = new Set();
-
             grid.forEach((row, r) => {
                 row.forEach((cell, c) => {
                     if (cell) {
                         activeIds.add(cell.id);
                         let element = document.getElementById(`tile-${cell.id}`);
+                        const pos = getPos(r, c);
                         
                         if (!element) {
-                            // 新方塊
                             element = document.createElement('div');
                             element.id = `tile-${cell.id}`;
-                            if (cell.isNew) element.className = 'tile tile-new';
+                            // 關鍵：在加入 DOM 前直接設定座標與 CSS 變數，防止跳轉
+                            element.style.transform = pos;
+                            element.style.setProperty('--target-pos', pos);
+                            element.className = 'tile tile-new';
                             container.appendChild(element);
                         }
                         
-                        // 更新數值與樣式（不重建 DOM）
                         element.textContent = cell.value;
-                        element.className = `tile tile-${cell.value > 2048 ? 'super' : cell.value}`;
-                        if (cell.isNew) element.classList.add('tile-new');
-                        
-                        // 只更新 transform 觸發 GPU 加速
-                        element.style.transform = `translate(calc(${c} * 100% + ${c * 8}px), calc(${r} * 100% + ${r * 8}px))`;
+                        element.className = `tile tile-${cell.value > 2048 ? 'super' : cell.value} ${cell.isNew ? 'tile-new' : ''}`;
+                        element.style.transform = pos;
+                        element.style.setProperty('--target-pos', pos);
                         cell.isNew = false;
                     }
                 });
             });
 
-            // 清除已經合併或消失的方塊
-            const allTileElements = container.querySelectorAll('.tile');
-            allTileElements.forEach(el => {
-                const id = parseInt(el.id.replace('tile-', ''));
-                if (!activeIds.has(id)) {
+            // 移除不再存在的方塊
+            container.querySelectorAll('.tile').forEach(el => {
+                if (!activeIds.has(parseInt(el.id.replace('tile-', '')))) {
                     container.removeChild(el);
                 }
             });
@@ -241,9 +244,9 @@
             let diffX = e.changedTouches[0].clientX - touchStartX;
             let diffY = e.changedTouches[0].clientY - touchStartY;
             if (Math.abs(diffX) > Math.abs(diffY)) {
-                if (Math.abs(diffX) > 15) move(diffX > 0 ? 'right' : 'left');
+                if (Math.abs(diffX) > 20) move(diffX > 0 ? 'right' : 'left');
             } else {
-                if (Math.abs(diffY) > 15) move(diffY > 0 ? 'down' : 'up');
+                if (Math.abs(diffY) > 20) move(diffY > 0 ? 'down' : 'up');
             }
         }, {passive: true});
 
