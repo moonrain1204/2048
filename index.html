@@ -21,8 +21,8 @@
             justify-content: center;
             height: 100vh;
             margin: 0;
-            overflow: hidden; /* 防止手機瀏覽器上下彈跳 */
-            touch-action: none; /* 禁用預設觸控行為 */
+            overflow: hidden;
+            touch-action: none;
         }
 
         .header {
@@ -82,13 +82,18 @@
             justify-content: center;
             font-size: 24px;
             font-weight: bold;
-            transition: all 100ms ease-in-out;
-            animation: appear 200ms ease;
+            /* 優化：縮短動畫時間從 100ms 改為 70ms，讓移動更乾脆 */
+            transition: transform 70ms ease-in-out, background-color 70ms ease-in-out;
+            animation: appear 100ms ease;
+            will-change: transform;
         }
 
-        @keyframes appear { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: scale(1); } }
+        /* 出現動畫也縮短，減少閃爍感 */
+        @keyframes appear { 
+            from { opacity: 0.5; transform: scale(0.5); } 
+            to { opacity: 1; transform: scale(1); } 
+        }
 
-        /* 數字顏色與 2048 官方風格一致 */
         .tile-2 { background: #eee4da; color: var(--text-dark); }
         .tile-4 { background: #ede0c8; color: var(--text-dark); }
         .tile-8 { background: #f2b179; color: white; }
@@ -127,7 +132,6 @@
         const container = document.getElementById('tile-container');
         const scoreDisplay = document.getElementById('score');
 
-        // 初始化
         function init() {
             grid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(0));
             document.getElementById('grid-bg').innerHTML = '<div class="grid-cell"></div>'.repeat(25);
@@ -147,28 +151,28 @@
         }
 
         function render() {
-            container.innerHTML = '';
+            // 優化：使用 DocumentFragment 一次性更新，減少 DOM 操作造成的閃爍
+            const fragment = document.createDocumentFragment();
             grid.forEach((row, r) => {
                 row.forEach((val, c) => {
                     if(val) {
                         const div = document.createElement('div');
                         div.className = `tile tile-${val > 2048 ? 'super' : val}`;
                         div.textContent = val;
-                        div.style.left = `calc(${c} * (100% / 5))`;
-                        div.style.top = `calc(${r} * (100% / 5))`;
-                        container.appendChild(div);
+                        // 使用 transform 代替 left/top，效能更好且更平滑
+                        div.style.transform = `translate(calc(${c} * 100% + ${c * 10}px), calc(${r} * 100% + ${r * 10}px))`;
+                        fragment.appendChild(div);
                     }
                 });
             });
+            container.innerHTML = '';
+            container.appendChild(fragment);
         }
 
         function move(dir) {
-            let changed = false;
             let prevGrid = JSON.stringify(grid);
-
             const rotate = (m) => m[0].map((x, i) => m.map(x => x[i]).reverse());
             
-            // 統一邏輯：向左移動
             if(dir === 'up') grid = rotate(rotate(rotate(grid)));
             if(dir === 'right') grid = rotate(rotate(grid));
             if(dir === 'down') grid = rotate(grid);
@@ -186,40 +190,38 @@
                 grid[r] = row;
             }
 
-            // 轉回原方向
             if(dir === 'up') grid = rotate(grid);
             if(dir === 'right') grid = rotate(rotate(grid));
             if(dir === 'down') grid = rotate(rotate(rotate(grid)));
 
             if(prevGrid !== JSON.stringify(grid)) {
-                addTile();
-                scoreDisplay.textContent = score;
-                render();
+                // 先移動，再生成新方塊，增加視覺連貫性
+                render(); 
+                setTimeout(() => {
+                    addTile();
+                    scoreDisplay.textContent = score;
+                    render();
+                }, 80); // 稍微延遲新方塊出現，讓移動動畫先跑完
             }
         }
 
-        // --- 觸控邏輯 ---
         let touchStartX = 0;
         let touchStartY = 0;
-
         document.addEventListener('touchstart', e => {
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
-        }, false);
+        }, {passive: true});
 
         document.addEventListener('touchend', e => {
             let diffX = e.changedTouches[0].clientX - touchStartX;
             let diffY = e.changedTouches[0].clientY - touchStartY;
-            
-            // 設定滑動門檻值，避免誤觸
             if (Math.abs(diffX) > Math.abs(diffY)) {
                 if (Math.abs(diffX) > 30) move(diffX > 0 ? 'right' : 'left');
             } else {
                 if (Math.abs(diffY) > 30) move(diffY > 0 ? 'down' : 'up');
             }
-        }, false);
+        }, {passive: true});
 
-        // 鍵盤備援
         window.addEventListener('keydown', e => {
             if(e.key.includes('Arrow')) move(e.key.replace('Arrow','').toLowerCase());
         });
