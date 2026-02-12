@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>2K48 Pro v0.4</title>
+    <title>2K48 Pro v0.4.1</title>
     <style>
         :root {
             --bg-color: #bbada0;
@@ -25,7 +25,6 @@
             touch-action: none;
         }
 
-        /* 標題與分數區 */
         .header {
             width: 92%;
             max-width: 450px;
@@ -46,12 +45,11 @@
             border-radius: 6px;
             color: white;
             text-align: center;
-            min-width: 60px;
+            min-width: 65px;
         }
         .score-label { font-size: 10px; font-weight: 800; text-transform: uppercase; }
         .score-value { font-size: 20px; font-weight: 800; display: block; }
 
-        /* 按鈕區 */
         .controls {
             width: 92%;
             max-width: 450px;
@@ -72,7 +70,6 @@
         }
         .btn:active { transform: scale(0.95); opacity: 0.8; }
 
-        /* 遊戲盤面 */
         .game-container {
             width: 92vw;
             height: 92vw;
@@ -103,16 +100,16 @@
             align-items: center;
             justify-content: center;
             font-weight: 800;
-            transition: transform 100ms ease-out, background-color 100ms ease;
+            transition: transform 100ms ease-out;
             will-change: transform;
             z-index: 10;
         }
 
-        /* 數字字體大小與動畫 */
+        /* 數字字體大小與配色 */
         .tile-2, .tile-4, .tile-8 { font-size: 34px; }
         .tile-16, .tile-32, .tile-64 { font-size: 30px; }
         .tile-128, .tile-256, .tile-512 { font-size: 24px; }
-        .tile-1024, .tile-2048, .tile-4096 { font-size: 18px; }
+        .tile-1024, .tile-2048 { font-size: 18px; }
 
         .tile-new { animation: appear 150ms ease-out forwards; }
         @keyframes appear { 
@@ -120,20 +117,17 @@
             100% { opacity: 1; transform: var(--target-pos) scale(1); } 
         }
 
-        /* 顏色主題優化 - 修正顏色相近問題 */
         .tile-2 { background: #eee4da; color: var(--text-dark); }
         .tile-4 { background: #ede0c8; color: var(--text-dark); }
         .tile-8 { background: #f2b179; color: white; }
         .tile-16 { background: #f59563; color: white; }
         .tile-32 { background: #f67c5f; color: white; }
         .tile-64 { background: #f65e3b; color: white; }
-        /* 128以上開始使用鮮明色系區分 */
-        .tile-128 { background: #edcf72; color: white; } /* 黃 */
-        .tile-256 { background: #61d9ed; color: white; } /* 淺藍 */
-        .tile-512 { background: #9b59b6; color: white; } /* 紫色 */
-        .tile-1024 { background: #2ecc71; color: white; } /* 綠色 */
-        .tile-2048 { background: #34495e; color: white; } /* 深藍灰 */
-        .tile-4096 { background: #e74c3c; color: white; } /* 鮮紅 */
+        .tile-128 { background: #edcf72; color: white; }
+        .tile-256 { background: #61d9ed; color: white; }
+        .tile-512 { background: #9b59b6; color: white; }
+        .tile-1024 { background: #2ecc71; color: white; }
+        .tile-2048 { background: #34495e; color: white; }
         .tile-super { background: #000000; color: white; }
     </style>
 </head>
@@ -141,7 +135,7 @@
 
     <div class="header">
         <div class="title-container">
-            <span class="version-tag">VERSION 0.4 PRO</span>
+            <span class="version-tag">VERSION 0.4.1 (FIXED)</span>
             <h1>2K48</h1>
         </div>
         <div class="scores-wrapper">
@@ -172,7 +166,7 @@
         let score = 0;
         let bestScore = localStorage.getItem('2k48_best_5x5') || 0;
         let nextId = 0;
-        let history = null; // 儲存上一步狀態
+        let history = null;
 
         const container = document.getElementById('tile-container');
         const scoreDisplay = document.getElementById('score');
@@ -187,32 +181,21 @@
         }
 
         function saveHistory() {
-            // 深拷貝當前狀態
-            history = {
-                grid: JSON.parse(JSON.stringify(grid)),
-                score: score
-            };
+            history = { grid: JSON.parse(JSON.stringify(grid)), score: score };
         }
 
         function undo() {
             if (history) {
                 grid = JSON.parse(JSON.stringify(history.grid));
                 score = history.score;
-                history = null; // 只能撤回一次
+                history = null;
                 scoreDisplay.textContent = score;
                 render();
-            } else {
-                alert("無法再撤回了！");
-            }
+            } else { alert("無法再撤回！"); }
         }
 
         function resetGame() {
-            if(confirm("確定要重開新局嗎？")) {
-                score = 0;
-                history = null;
-                scoreDisplay.textContent = 0;
-                init();
-            }
+            if(confirm("確定要重新開始嗎？")) { history = null; score = 0; scoreDisplay.textContent = 0; init(); }
         }
 
         function getPos(r, c) {
@@ -238,7 +221,6 @@
                         activeIds.add(cell.id);
                         let element = document.getElementById(`tile-${cell.id}`);
                         const pos = getPos(r, c);
-                        
                         if (!element) {
                             element = document.createElement('div');
                             element.id = `tile-${cell.id}`;
@@ -247,23 +229,17 @@
                             element.className = 'tile tile-new';
                             container.appendChild(element);
                         }
-                        
                         element.textContent = cell.value;
-                        element.className = `tile tile-${cell.value > 4096 ? 'super' : cell.value} ${cell.isNew ? 'tile-new' : ''}`;
+                        element.className = `tile tile-${cell.value > 2048 ? 'super' : cell.value} ${cell.isNew ? 'tile-new' : ''}`;
                         element.style.transform = pos;
                         element.style.setProperty('--target-pos', pos);
                         cell.isNew = false;
                     }
                 });
             });
-
             container.querySelectorAll('.tile').forEach(el => {
-                if (!activeIds.has(parseInt(el.id.replace('tile-', '')))) {
-                    container.removeChild(el);
-                }
+                if (!activeIds.has(parseInt(el.id.replace('tile-', '')))) container.removeChild(el);
             });
-
-            // 更新最高分
             if (score > bestScore) {
                 bestScore = score;
                 bestDisplay.textContent = bestScore;
@@ -271,44 +247,52 @@
             }
         }
 
+        // 核心修正：改用更直覺的移動邏輯，避免旋轉造成的座標偏移
         function move(dir) {
-            let prevGridStr = JSON.stringify(grid);
-            saveHistory(); // 移動前先備份
+            saveHistory();
+            let moved = false;
+            const prevGrid = JSON.stringify(grid);
 
-            const rotate = (m) => m[0].map((x, i) => m.map(x => x[i]).reverse());
-            if(dir === 'up') grid = rotate(rotate(rotate(grid)));
-            if(dir === 'right') grid = rotate(rotate(grid));
-            if(dir === 'down') grid = rotate(rotate(grid));
-
-            let movedInLoop = false;
-            for(let r=0; r<GRID_SIZE; r++) {
-                let row = grid[r].filter(v => v !== null);
-                for(let i=0; i<row.length-1; i++) {
-                    if(row[i].value === row[i+1].value) {
-                        row[i] = { value: row[i].value * 2, id: row[i].id, isNew: false };
-                        score += row[i].value;
-                        row.splice(i+1, 1);
-                        movedInLoop = true;
+            if (dir === 'left' || dir === 'right') {
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    let row = grid[r].filter(cell => cell !== null);
+                    if (dir === 'right') row.reverse();
+                    for (let i = 0; i < row.length - 1; i++) {
+                        if (row[i].value === row[i + 1].value) {
+                            row[i] = { value: row[i].value * 2, id: row[i].id, isNew: false };
+                            score += row[i].value;
+                            row.splice(i + 1, 1);
+                        }
                     }
+                    while (row.length < GRID_SIZE) row.push(null);
+                    if (dir === 'right') row.reverse();
+                    grid[r] = row;
                 }
-                while(row.length < GRID_SIZE) row.push(null);
-                grid[r] = row;
+            } else {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    let col = [];
+                    for (let r = 0; r < GRID_SIZE; r++) if (grid[r][c]) col.push(grid[r][c]);
+                    if (dir === 'down') col.reverse();
+                    for (let i = 0; i < col.length - 1; i++) {
+                        if (col[i].value === col[i + 1].value) {
+                            col[i] = { value: col[i].value * 2, id: col[i].id, isNew: false };
+                            score += col[i].value;
+                            col.splice(i + 1, 1);
+                        }
+                    }
+                    while (col.length < GRID_SIZE) col.push(null);
+                    if (dir === 'down') col.reverse();
+                    for (let r = 0; r < GRID_SIZE; r++) grid[r][c] = col[r];
+                }
             }
 
-            if(dir === 'up') grid = rotate(grid);
-            if(dir === 'right') grid = rotate(rotate(grid));
-            if(dir === 'down') grid = rotate(rotate(rotate(grid)));
-
-            if(prevGridStr !== JSON.stringify(grid)) {
+            if (prevGrid !== JSON.stringify(grid)) {
                 addTile();
                 scoreDisplay.textContent = score;
                 render();
-            } else {
-                history = null; // 如果沒動，清除這次的歷史紀錄
-            }
+            } else { history = null; }
         }
 
-        // 手勢偵測
         let touchStartX = 0, touchStartY = 0;
         document.addEventListener('touchstart', e => {
             touchStartX = e.touches[0].clientX;
@@ -319,15 +303,11 @@
             let diffX = e.changedTouches[0].clientX - touchStartX;
             let diffY = e.changedTouches[0].clientY - touchStartY;
             if (Math.abs(diffX) > Math.abs(diffY)) {
-                if (Math.abs(diffX) > 20) move(diffX > 0 ? 'right' : 'left');
+                if (Math.abs(diffX) > 25) move(diffX > 0 ? 'right' : 'left');
             } else {
-                if (Math.abs(diffY) > 20) move(diffY > 0 ? 'down' : 'up');
+                if (Math.abs(diffY) > 25) move(diffY > 0 ? 'down' : 'up');
             }
         }, {passive: true});
-
-        window.addEventListener('keydown', e => {
-            if(e.key.includes('Arrow')) move(e.key.replace('Arrow','').toLowerCase());
-        });
 
         init();
     </script>
