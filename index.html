@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>2K48 Pro v0.4.1</title>
+    <title>2K48 Pro v0.5.1</title>
     <style>
         :root {
             --bg-color: #bbada0;
@@ -36,38 +36,40 @@
 
         .title-container { display: flex; flex-direction: column; }
         .version-tag { font-size: 10px; color: var(--text-dark); font-weight: 800; opacity: 0.6; }
-        h1 { color: var(--text-dark); margin: 0; font-size: 48px; line-height: 0.9; }
+        h1 { color: var(--text-dark); margin: 0; font-size: 44px; line-height: 0.9; }
 
         .scores-wrapper { display: flex; gap: 5px; }
         .score-box {
             background: var(--bg-color);
-            padding: 5px 15px;
+            padding: 5px 12px;
             border-radius: 6px;
             color: white;
             text-align: center;
             min-width: 65px;
         }
         .score-label { font-size: 10px; font-weight: 800; text-transform: uppercase; }
-        .score-value { font-size: 20px; font-weight: 800; display: block; }
+        .score-value { font-size: 18px; font-weight: 800; display: block; }
 
         .controls {
             width: 92%;
             max-width: 450px;
             display: flex;
+            flex-wrap: wrap;
             justify-content: flex-end;
-            gap: 10px;
+            gap: 8px;
             margin-bottom: 10px;
         }
         .btn {
             background: #8f7a66;
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 8px 12px;
             border-radius: 4px;
             font-weight: 800;
-            font-size: 16px;
+            font-size: 14px;
             cursor: pointer;
         }
+        .btn-save { background: #2ecc71; }
         .btn:active { transform: scale(0.95); opacity: 0.8; }
 
         .game-container {
@@ -105,7 +107,6 @@
             z-index: 10;
         }
 
-        /* 數字字體大小與配色 */
         .tile-2, .tile-4, .tile-8 { font-size: 34px; }
         .tile-16, .tile-32, .tile-64 { font-size: 30px; }
         .tile-128, .tile-256, .tile-512 { font-size: 24px; }
@@ -135,7 +136,7 @@
 
     <div class="header">
         <div class="title-container">
-            <span class="version-tag">VERSION 0.4.1 (FIXED)</span>
+            <span class="version-tag">VERSION 0.5.1 (MASTER)</span>
             <h1>2K48</h1>
         </div>
         <div class="scores-wrapper">
@@ -151,8 +152,9 @@
     </div>
 
     <div class="controls">
+        <button class="btn btn-save" onclick="saveGameLink()">儲存連結</button>
         <button class="btn" onclick="undo()">Undo</button>
-        <button class="btn" onclick="resetGame()">New Game</button>
+        <button class="btn" onclick="resetGame()">New</button>
     </div>
 
     <div class="game-container">
@@ -173,11 +175,38 @@
         const bestDisplay = document.getElementById('best-score');
 
         function init() {
-            grid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(null));
             document.getElementById('grid-bg').innerHTML = '<div class="grid-cell"></div>'.repeat(25);
             bestDisplay.textContent = bestScore;
-            addTile(); addTile();
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            const savedData = urlParams.get('state');
+            
+            if (savedData) {
+                try {
+                    const decoded = JSON.parse(atob(savedData));
+                    grid = decoded.grid;
+                    score = decoded.score;
+                    nextId = decoded.nextId || 0;
+                    scoreDisplay.textContent = score;
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                } catch (e) { startNewGame(); }
+            } else { startNewGame(); }
             render();
+        }
+
+        function startNewGame() {
+            grid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(null));
+            score = 0; scoreDisplay.textContent = 0;
+            addTile(); addTile();
+        }
+
+        function saveGameLink() {
+            const state = { grid: grid, score: score, nextId: nextId };
+            const encoded = btoa(JSON.stringify(state));
+            const shareUrl = `${window.location.origin}${window.location.pathname}?state=${encoded}`;
+            navigator.clipboard.writeText(shareUrl).then(() => {
+                alert("進度連結已複製！");
+            }).catch(() => alert("連結為：" + shareUrl));
         }
 
         function saveHistory() {
@@ -195,7 +224,7 @@
         }
 
         function resetGame() {
-            if(confirm("確定要重新開始嗎？")) { history = null; score = 0; scoreDisplay.textContent = 0; init(); }
+            if(confirm("確定重開？")) { history = null; startNewGame(); render(); }
         }
 
         function getPos(r, c) {
@@ -247,11 +276,9 @@
             }
         }
 
-        // 核心修正：改用更直覺的移動邏輯，避免旋轉造成的座標偏移
         function move(dir) {
-            saveHistory();
-            let moved = false;
             const prevGrid = JSON.stringify(grid);
+            saveHistory();
 
             if (dir === 'left' || dir === 'right') {
                 for (let r = 0; r < GRID_SIZE; r++) {
